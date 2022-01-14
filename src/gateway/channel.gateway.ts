@@ -18,10 +18,12 @@ export class ChannelGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   }
 
   handleConnection(client: Socket, ...args: any[]) {
-      this.logger.log(`Client Connected : ${client.id}`)
+      this.logger.log(`Client Connected : ${client.id}`);
+      this.server.emit('ClientConnect',`${client.id} has joined the channel`);
   }
 
   handleDisconnect(client: Socket) {
       this.logger.log(`Client Disconnected : ${client.id}`)
+      this.server.emit('ClientDisconnect',`${client.id} left the channel`);
   }
 }
