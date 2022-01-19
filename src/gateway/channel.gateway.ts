@@ -1,29 +1,41 @@
 import { Logger } from '@nestjs/common';
-import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Socket,Server } from 'socket.io';
+import {
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
+import { Socket, Server } from 'socket.io';
 
-@WebSocketGateway({ cors: true })
-export class ChannelGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  
-  @WebSocketServer() server:Server;
-  private logger:Logger = new Logger('ChannelGateway');
+@WebSocketGateway({ namespace: '/channel', cors: true })
+export class ChannelGateway implements OnGatewayInit {
+  @WebSocketServer() server: Server;
+  private logger: Logger = new Logger('ChannelGateway');
 
   @SubscribeMessage('msgFromClientToServer')
-  handleMessage(client : Socket,payload:string): void{
-    this.server.emit('msgFromServerToClient',`${client.id} sent ${payload}`);
+  handleMessage(
+    client: Socket,
+    message: { sender: string; code: string; text: string },
+  ): void {
+    this.server.to(message.code).emit('msgFromServerToClient', message);
   }
 
-  afterInit(server: Server) {
-      this.logger.log('Init');
+  @SubscribeMessage('joinChannel')
+  handleJoinChannel(
+    client: Socket,
+    data: { code: string; username: string },
+  ): void {
+    client.join(data.code);
+    this.server.to(data.code).emit('hasJoinChannel', data);
   }
 
-  handleConnection(client: Socket, ...args: any[]) {
-      this.logger.log(`Client Connected : ${client.id}`);
-      this.server.emit('ClientConnect',`${client.id} has joined the channel`);
+  @SubscribeMessage('leaveChannel')
+  handleLeaveChannel(client: Socket, code: string): void {
+    client.leave(code);
+    client.emit('leftChannel', code);
   }
 
-  handleDisconnect(client: Socket) {
-      this.logger.log(`Client Disconnected : ${client.id}`)
-      this.server.emit('ClientDisconnect',`${client.id} left the channel`);
+  afterInit() {
+    this.logger.log('Init');
   }
 }
